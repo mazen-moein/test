@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GenUIne - Drag-and-Drop UI Builder</title>
+    <title>GenUIne - Drag-and-Drop UI Builder with Grid and Property Editor</title>
     <style>
         body {
             margin: 0;
@@ -35,6 +35,7 @@
             position: relative;
             background-color: #fff;
             overflow: auto;
+            border-right: 1px solid #ccc;
         }
         .canvas-element {
             position: absolute;
@@ -43,6 +44,42 @@
             cursor: move;
             background-color: #fafafa;
             user-select: none;
+        }
+        #property-editor {
+            width: 20%;
+            background-color: #f8f8f8;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        #property-editor h3 {
+            text-align: center;
+        }
+        .property-field {
+            margin-bottom: 10px;
+        }
+        .property-field label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .property-field input, .property-field select {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        /* Grid Layout styles */
+        .grid-layout {
+            display: grid;
+            position: absolute;
+            border: 1px dashed #aaa;
+            background-color: #e9e9e9;
+            cursor: move;
+        }
+        .grid-cell {
+            border: 1px solid #ccc;
+            min-width: 50px;
+            min-height: 50px;
+            position: relative;
         }
     </style>
 </head>
@@ -53,9 +90,17 @@
     <div class="toolbox-item" draggable="true" data-type="button">Button</div>
     <div class="toolbox-item" draggable="true" data-type="input">Input Field</div>
     <div class="toolbox-item" draggable="true" data-type="textarea">Text Area</div>
+    <div class="toolbox-item" draggable="true" data-type="grid">Grid Layout</div>
 </div>
 
 <div id="canvas"></div>
+
+<div id="property-editor">
+    <h3>Properties</h3>
+    <div id="properties-container">
+        <p>Select an element to edit its properties.</p>
+    </div>
+</div>
 
 <script>
     // Toolbox drag functionality
@@ -75,7 +120,9 @@
         e.preventDefault();
         const elementType = e.dataTransfer.getData('elementType');
         const element = createCanvasElement(elementType, e.offsetX, e.offsetY);
-        canvas.appendChild(element);
+        if (element) {
+            canvas.appendChild(element);
+        }
     });
 
     // Function to create elements on the canvas
@@ -95,6 +142,9 @@
                 element = document.createElement('textarea');
                 element.placeholder = 'Text Area';
                 break;
+            case 'grid':
+                element = createGridLayout();
+                break;
             default:
                 return null;
         }
@@ -102,12 +152,49 @@
         element.style.left = x + 'px';
         element.style.top = y + 'px';
         makeDraggable(element);
+        element.addEventListener('click', function(e) {
+            e.stopPropagation();
+            selectElement(element);
+        });
         return element;
+    }
+
+    // Create a grid layout
+    function createGridLayout() {
+        const grid = document.createElement('div');
+        grid.classList.add('grid-layout');
+        grid.style.width = '300px';
+        grid.style.height = '200px';
+        grid.style.gridTemplateColumns = '1fr 1fr 1fr';
+        grid.style.gridTemplateRows = '1fr 1fr';
+        // Create grid cells
+        for (let i = 0; i < 6; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('grid-cell');
+            cell.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
+            cell.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const elementType = e.dataTransfer.getData('elementType');
+                const element = createCanvasElement(elementType, 0, 0);
+                if (element) {
+                    cell.appendChild(element);
+                    element.style.position = 'relative';
+                    element.style.left = '0px';
+                    element.style.top = '0px';
+                    element.classList.remove('canvas-element');
+                }
+            });
+            grid.appendChild(cell);
+        }
+        return grid;
     }
 
     // Make canvas elements draggable within the canvas
     function makeDraggable(el) {
         el.addEventListener('mousedown', function(e) {
+            if (e.target !== el) return;
             const offsetX = e.clientX - el.offsetLeft;
             const offsetY = e.clientY - el.offsetTop;
 
@@ -117,14 +204,132 @@
             }
 
             function mouseUpHandler() {
-                canvas.removeEventListener('mousemove', mouseMoveHandler);
-                canvas.removeEventListener('mouseup', mouseUpHandler);
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
             }
 
-            canvas.addEventListener('mousemove', mouseMoveHandler);
-            canvas.addEventListener('mouseup', mouseUpHandler);
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
         });
     }
+
+    // Property Editor functionality
+    let selectedElement = null;
+    function selectElement(el) {
+        if (selectedElement) {
+            selectedElement.style.outline = '';
+        }
+        selectedElement = el;
+        selectedElement.style.outline = '2px solid blue';
+        showProperties(el);
+    }
+
+    function showProperties(el) {
+        const propertiesContainer = document.getElementById('properties-container');
+        propertiesContainer.innerHTML = '';
+
+        // Common properties
+        const left = el.style.left.replace('px', '');
+        const top = el.style.top.replace('px', '');
+        const width = el.style.width ? el.style.width.replace('px', '') : el.offsetWidth;
+        const height = el.style.height ? el.style.height.replace('px', '') : el.offsetHeight;
+
+        propertiesContainer.appendChild(createPropertyField('Left', 'number', left, function(value) {
+            el.style.left = value + 'px';
+        }));
+        propertiesContainer.appendChild(createPropertyField('Top', 'number', top, function(value) {
+            el.style.top = value + 'px';
+        }));
+        propertiesContainer.appendChild(createPropertyField('Width', 'number', width, function(value) {
+            el.style.width = value + 'px';
+        }));
+        propertiesContainer.appendChild(createPropertyField('Height', 'number', height, function(value) {
+            el.style.height = value + 'px';
+        }));
+
+        // Element-specific properties
+        if (el.tagName.toLowerCase() === 'button') {
+            propertiesContainer.appendChild(createPropertyField('Text', 'text', el.textContent, function(value) {
+                el.textContent = value;
+            }));
+        } else if (el.tagName.toLowerCase() === 'input' || el.tagName.toLowerCase() === 'textarea') {
+            propertiesContainer.appendChild(createPropertyField('Placeholder', 'text', el.placeholder, function(value) {
+                el.placeholder = value;
+            }));
+        } else if (el.classList.contains('grid-layout')) {
+            propertiesContainer.appendChild(createPropertyField('Columns', 'number', el.style.gridTemplateColumns.split(' ').length, function(value) {
+                el.style.gridTemplateColumns = '1fr '.repeat(value).trim();
+                updateGridCells(el);
+            }));
+            propertiesContainer.appendChild(createPropertyField('Rows', 'number', el.style.gridTemplateRows.split(' ').length, function(value) {
+                el.style.gridTemplateRows = '1fr '.repeat(value).trim();
+                updateGridCells(el);
+            }));
+        }
+    }
+
+    function createPropertyField(labelText, inputType, value, onChange) {
+        const field = document.createElement('div');
+        field.classList.add('property-field');
+
+        const label = document.createElement('label');
+        label.textContent = labelText;
+
+        const input = document.createElement('input');
+        input.type = inputType;
+        input.value = value;
+
+        input.addEventListener('input', function() {
+            onChange(input.value);
+        });
+
+        field.appendChild(label);
+        field.appendChild(input);
+
+        return field;
+    }
+
+    function updateGridCells(grid) {
+        // Clear existing cells
+        while (grid.firstChild) {
+            grid.removeChild(grid.firstChild);
+        }
+
+        const columns = grid.style.gridTemplateColumns.split(' ').length;
+        const rows = grid.style.gridTemplateRows.split(' ').length;
+        const totalCells = columns * rows;
+
+        for (let i = 0; i < totalCells; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('grid-cell');
+            cell.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
+            cell.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const elementType = e.dataTransfer.getData('elementType');
+                const element = createCanvasElement(elementType, 0, 0);
+                if (element) {
+                    cell.appendChild(element);
+                    element.style.position = 'relative';
+                    element.style.left = '0px';
+                    element.style.top = '0px';
+                    element.classList.remove('canvas-element');
+                }
+            });
+            grid.appendChild(cell);
+        }
+    }
+
+    // Deselect element when clicking outside
+    canvas.addEventListener('click', function() {
+        if (selectedElement) {
+            selectedElement.style.outline = '';
+            selectedElement = null;
+            const propertiesContainer = document.getElementById('properties-container');
+            propertiesContainer.innerHTML = '<p>Select an element to edit its properties.</p>';
+        }
+    });
 </script>
 
 </body>
