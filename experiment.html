@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GenUIne - Drag-and-Drop UI Builder</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+        #toolbox {
+            width: 20%;
+            background-color: #f0f0f0;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            border-right: 1px solid #ccc;
+        }
+        #toolbox h3 {
+            text-align: center;
+        }
+        .toolbox-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            cursor: grab;
+            text-align: center;
+            user-select: none;
+        }
+        #canvas {
+            flex-grow: 1;
+            position: relative;
+            background-color: #fff;
+            overflow: auto;
+        }
+        .canvas-element {
+            position: absolute;
+            border: 1px solid #ccc;
+            padding: 5px;
+            cursor: move;
+            background-color: #fafafa;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="toolbox">
+    <h3>Toolbox</h3>
+    <div class="toolbox-item" draggable="true" data-type="button">Button</div>
+    <div class="toolbox-item" draggable="true" data-type="input">Input Field</div>
+    <div class="toolbox-item" draggable="true" data-type="textarea">Text Area</div>
+</div>
+
+<div id="canvas"></div>
+
+<script>
+    // Toolbox drag functionality
+    const toolboxItems = document.querySelectorAll('.toolbox-item');
+    toolboxItems.forEach(item => {
+        item.addEventListener('dragstart', function(e) {
+            e.dataTransfer.setData('elementType', e.target.getAttribute('data-type'));
+        });
+    });
+
+    // Canvas drag and drop functionality
+    const canvas = document.getElementById('canvas');
+    canvas.addEventListener('dragover', function(e) {
+        e.preventDefault();
+    });
+    canvas.addEventListener('drop', function(e) {
+        e.preventDefault();
+        const elementType = e.dataTransfer.getData('elementType');
+        const element = createCanvasElement(elementType, e.offsetX, e.offsetY);
+        canvas.appendChild(element);
+    });
+
+    // Function to create elements on the canvas
+    function createCanvasElement(type, x, y) {
+        let element;
+        switch(type) {
+            case 'button':
+                element = document.createElement('button');
+                element.textContent = 'Button';
+                break;
+            case 'input':
+                element = document.createElement('input');
+                element.type = 'text';
+                element.placeholder = 'Input Field';
+                break;
+            case 'textarea':
+                element = document.createElement('textarea');
+                element.placeholder = 'Text Area';
+                break;
+            default:
+                return null;
+        }
+        element.classList.add('canvas-element');
+        element.style.left = x + 'px';
+        element.style.top = y + 'px';
+        makeDraggable(element);
+        return element;
+    }
+
+    // Make canvas elements draggable within the canvas
+    function makeDraggable(el) {
+        el.addEventListener('mousedown', function(e) {
+            const offsetX = e.clientX - el.offsetLeft;
+            const offsetY = e.clientY - el.offsetTop;
+
+            function mouseMoveHandler(e) {
+                el.style.left = (e.clientX - offsetX) + 'px';
+                el.style.top = (e.clientY - offsetY) + 'px';
+            }
+
+            function mouseUpHandler() {
+                canvas.removeEventListener('mousemove', mouseMoveHandler);
+                canvas.removeEventListener('mouseup', mouseUpHandler);
+            }
+
+            canvas.addEventListener('mousemove', mouseMoveHandler);
+            canvas.addEventListener('mouseup', mouseUpHandler);
+        });
+    }
+</script>
+
+</body>
+</html>
